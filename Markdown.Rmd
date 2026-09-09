@@ -1,12 +1,12 @@
-   ---
+---
 title: "Large Language Models vs. Human Coders in Political Communication Research"
 author: "Inmaculada Gutierrez"
-date: "2026-03-09"
+date: "2026-09-09"
 output:
   html_document:
-    toc: true       
-    toc_float: true 
-    toc_depth: 4  
+    toc: true
+    toc_float: true
+    toc_depth: 4
     self_contained: true
 ---
 
@@ -30,6 +30,7 @@ library(tibble)
 library(writexl)
 library(corrplot)
 library(Hmisc)
+library(tidyr)
 ```
 
 
@@ -144,7 +145,7 @@ for (threshold in thresholds) {
  for (name in names(threshold_dataframes)) { 
  addWorksheet(wb, name)  
  writeData(wb, name, threshold_dataframes[[name]])}
- saveWorkbook(wb, "Data/binarizations_LLM.xlsx", overwrite = TRUE)
+ #saveWorkbook(wb, "Data/binarizations_LLM.xlsx", overwrite = TRUE)
 ```
  
 Same binarization process for LLaMa results 
@@ -176,9 +177,9 @@ Next, we organize the variables in order to proceed with the comparison between 
 ```{r, warnings=FALSE}
 # Define the column groups for humans
 cols_data2 <- c('l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'l8')
-cols_data1 <- c('m1_h1_l1', 'm1_h1_l2', 'm1_h1_l3', 'm1_h1_l4', 'm1_h1_l5', 'm1_h1_l6', 'm1_h1_l7', 'm1_h1_l8', 'm1_h2_l1', 'm1_h2_l2', 'm1_h2_l3', 'm1_h2_l4', 'm1_h2_l5', 'm1_h2_l6', 'm1_h2_l7', 'm1_h2_l8', 'm1_h3_l1', 'm1_h3_l2', 'm1_h3_l3', 'm1_h3_l4', 'm1_h3_l5', 'm1_h3_l6', 'm1_h3_l7', 'm1_h3_l8', 'm1_h4_l1', 'm1_h4_l2', 'm1_h4_l3', 'm1_h4_l4', 'm1_h4_l5', 'm1_h4_l6', 'm1_h4_l7', 'm1_h4_l8')
+cols_data1 <- c('h1_l1', 'h1_l2', 'h1_l3', 'h1_l4', 'h1_l5', 'h1_l6', 'h1_l7', 'h1_l8', 'h2_l1', 'h2_l2', 'h2_l3', 'h2_l4', 'h2_l5', 'h2_l6', 'h2_l7', 'h2_l8', 'h3_l1', 'h3_l2', 'h3_l3', 'h3_l4', 'h3_l5', 'h3_l6', 'h3_l7', 'h3_l8', 'h4_l1', 'h4_l2', 'h4_l3', 'h4_l4', 'h4_l5', 'h4_l6', 'h4_l7', 'h4_l8')
 cols_llama <- c("Immigration","Health Care","Foreign Affairs","Elections","Civil Rights","Culture","Trump","Climate Change" )
-# Make a copy of 'human' without 'ID' and 'TEXT'
+# Make a copy of 'human' without 'ID' and 'sequence'
 human_copy <- human %>% select('Imm_ConsensusTruth','HealthCare_ConsensusTruth','ForAff_ConsensusTruth','Elections_ConsensusTruth','CivRights_ConsensusTruth','Culture_ConsensusTruth','Trump_ConsensusTruth','Env_ConsensusTruth')
 human2 <- subset(human, select=-c(ID,sequence))
 # Rename columns
@@ -211,7 +212,9 @@ for(df_name in names(threshold_dataframes)){
       #third column in selected_columns is Coder2 classification
       selected_columns <- cbind(y_pred, selected_columns)
       # Compute confusion matrix
-      cm <- table(y_true, y_pred)
+      cm <- table(
+       factor(y_true, levels = c(0, 1)),
+       factor(y_pred, levels = c(0, 1)))
       FP <- cm[1,2]
       FN <- cm[2,1]
       TP <- cm[2,2]
@@ -255,10 +258,13 @@ results_pilot_LLM = results_df
 
 The metrics obtained for the different thresholds and issues are located in the file `results_pilot_LLM.xlsx`, within the `Results/Pilot/LLM` folder. 
 
+
+Then, we apply the same metric calculation procedure to the LLaMA classifications in the pilot dataset.
+
 ```{r, warnings=FALSE}
 ## LLaMa VS Human
 results_pilot_LLaMa <- data.frame(Issue = character(), FP = integer(), FN = integer(), TP = integer(),TN = integer(), TH = numeric(), recall = numeric(), precision = numeric(), accuracy = numeric(), f1 = numeric(),kappa=numeric(),
-topic=character(),hypothesis=character(),stringsAsFactors = FALSE)
+topic=character(),hypothesis=character(),kappa_fleiss=numeric(), kappa_C1C2=numeric(),kappa_C1LLaMa=numeric(), kappa_C2LLaMa=numeric(),stringsAsFactors = FALSE)
 
 for(df_name in names(threshold_llama)){
  LLaMa_copy <- threshold_llama[[df_name]]
@@ -272,11 +278,6 @@ for(df_name in names(threshold_llama)){
       selected_columns <- human2[, c(3*k-1, 3*k)]     
       # selected_columns <- human2[, seq(2, ncol(human2), by = 2)] 
       selected_columns <- cbind(y_pred, selected_columns)
-      #first column in selected_columns is BART classification
-      #second column in selected_columns is Coder1 classification
-      #third column in selected_columns is Coder2 classification
-      
-      
       # Compute confusion matrix
       cm <- table(y_true, y_pred)
       FP <- cm[1,2]
@@ -290,6 +291,10 @@ for(df_name in names(threshold_llama)){
       f1_score <- ifelse((precision + recall) != 0, (2 * precision * recall) / (precision + recall), 0)
       # Compute Cohen's Kappa
       kappa_stat <- kappa2(data.frame(y_true, y_pred))$value
+      kappa_C1C2 <- kappa2(data.frame(selected_columns[,2],selected_columns[,3]))$value
+      kappa_C1LLaMa <- kappa2(data.frame(selected_columns[,2], y_pred))$value
+      kappa_C2LLaMa <- kappa2(data.frame(selected_columns[,3], y_pred))$value
+      kappa_fleiss=kappam.fleiss(as.matrix(selected_columns))$value
       # Extract 'hypothesis' from 'Issue' column (only numbers, removing 'h')
       hypothesis <- as.character(str_extract(cols_data1[k], "(?<=h)\\d+"))
       # Extract 'topic' from 'Issue' column (only numbers, removing 'l')
@@ -299,7 +304,7 @@ for(df_name in names(threshold_llama)){
       new_row <- data.frame(
         Issue = cols_data2[k], FP = FP, FN = FN, TP = TP, TN = TN, TH = TH,
         recall = recall, precision = precision, accuracy = accuracy, 
-        f1 = f1_score, kappa=kappa_stat,topic=topic, hypothesis=hypothesis
+        f1 = f1_score, kappa=kappa_stat,topic=topic, hypothesis=hypothesis, kappa_fleiss=kappa_fleiss,kappa_C1C2=kappa_C1C2, kappa_C1LLaMa=kappa_C1LLaMa,kappa_C2LLaMa=kappa_C2LLaMa
       )
       
       # Append new row to results DataFrame
@@ -307,11 +312,12 @@ for(df_name in names(threshold_llama)){
        }
   }
 # Uncomment to save ´results_df´as a XLSX file.
- write_xlsx(results_pilot_LLaMa, "Results/Pilot/LLaMa/results_pilot_LLaMa.xlsx")
+ #write_xlsx(results_pilot_LLaMa, "Results/Pilot/LLaMa/results_pilot_LLaMa.xlsx")
 ```
 
 The metrics obtained for the different thresholds and issues are located in the file `results_pilot_LLaMa.xlsx`, within the `Results/Pilot/LLaMa` folder. 
 
+## Metrics representation
 
 Once all the metrics are calculated, they are represented in different contexts to facilitate their analysis and enable a decision to be made regarding the threshold.
 
@@ -322,12 +328,12 @@ colors <- c("Recall" = "#FFD700", "Precision" = "#66CD00", "Accuracy" = "#FF3030
 
 
 # Obtain unique combinations of hypotheses and topics for LLM
-unique_combinations_LLM <- unique(results_df[, c("hypothesis", "topic")])
+unique_combinations_LLM <- unique(results_pilot_LLM[, c("hypothesis", "topic")])
 labels_LLM= c("Immigration", "Health Care", "Foreign Affairs",'Elections',"Civil Rights","Culture","Trump","Climate Change")
 hypothesis_LLM=c("This text is about {}.", "This text focuses on {}.", "The main subject of this text is {}", "This text is related to {}")
 ```
 
-#### Plot recall, accuracy, precision and f1 across the threshold for LLMs
+#### Plot recall, accuracy, precision and f1 across the threshold for LLM
 
 ```{r, warnings=FALSE}
 # Iterate over each unique combination of hypotheses and topics
@@ -350,7 +356,7 @@ for (i in 1:nrow(unique_combinations_LLM)) {
     scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by = 0.1))+
     labs(title = paste("Prompt:", hypothesis_LLM[as.numeric(unique_combinations_LLM$hyp[i])], " Topic:", labels_LLM[as.numeric(unique_combinations_LLM$top[i])]), x = "Threshold", y = "Value", color = "Metric") + theme_minimal() + theme(panel.background = element_rect(fill = "white", color = NA), legend.position = "bottom", text = element_text(size =  12))
   filename <- sprintf("Results/Pilot/LLM/Metrics Evolution/%s_%s_Evolution_of_Metrics.png", hyp, top)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   # Uncomment to plot
   print(plot)
 }
@@ -362,8 +368,12 @@ for (i in 1:nrow(unique_combinations_LLM)) {
 # Obtain unique combinations of hypotheses and topics
 unique_combinations_LLaMa <- unique(results_pilot_LLaMa[, c("hypothesis", "topic")])
 labels_LLaMa= c("Immigration", "Health Care", "Foreign Affairs",'Elections',"Civil Rights","Culture","Trump","Climate Change")
-hypothesis_LLaMa=c("This text is about {}.", "This text focuses on {}.", "The main subject of this text is {}", "This text is related to {}")
+hypothesis_LLaMa=c("This text is about {}.")
 # Iterate over each unique combination of hypotheses and topics
+colors_LLaMa <- c("Recall" = "#FFD700", "Precision" = "#66CD00", "Accuracy" = "#FF3030", "F1" = "#00BFFF", "Human Consensus-LLaMa 2 codes kappa"="#D15FEE", "Humans-LLaMa 3 codes kappa"="#FFC0CB", "Code 1-Code 2 kappa"="#C1CDC1", "Code 1-LLaMa kappa"="#8B0000", "Code 2-LLaMa kappa"="#27408B")
+```
+
+```{r,warnings=FALSE}
 for (i in 1:nrow(unique_combinations_LLaMa)) {
   hyp <- unique_combinations_LLaMa$hypothesis[i]
   top <- unique_combinations_LLaMa$topic[i]
@@ -379,18 +389,19 @@ for (i in 1:nrow(unique_combinations_LLaMa)) {
     geom_point(aes(y = accuracy, color = "Accuracy"), size =  5) +
     geom_line(aes(y = f1, color = "F1"), linewidth =  1) +
     geom_point(aes(y = f1, color = "F1"), size =  5) +
-    scale_color_manual(values = colors) +  
+    scale_color_manual(values = colors_LLaMa) +  
     scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by = 0.1))+
     labs(title = paste("Prompt:", hypothesis_LLaMa[as.numeric(unique_combinations_LLaMa$hyp[i])], " Topic:", labels_LLaMa[as.numeric(unique_combinations_LLaMa$top[i])]), x = "Threshold", y = "Value", color = "Metric") + theme_minimal() + theme(panel.background = element_rect(fill = "white", color = NA), legend.position = "bottom", text = element_text(size =  12))
   filename <- sprintf("Results/Pilot/LLaMa/Metrics Evolution/%s_%s_Evolution_of_Metrics.png", hyp, top)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  # Uncomment to save
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   # Uncomment to plot
   print(plot)
 }
 
 ```
 
-#### Plot recall, accuracy, precision, f1 and human consensus-LLaMa kappa across the threshold for LLMs
+#### Plot recall, accuracy, precision, f1 and human consensus-LLaMa kappa across the threshold for LLM
 
 ```{r, warnings=FALSE}
 for (i in 1:nrow(unique_combinations_LLM)) {
@@ -420,12 +431,12 @@ for (i in 1:nrow(unique_combinations_LLM)) {
           text = element_text(size =  12))
   # Uncomment to save the figure
   filename <- sprintf("Results/Pilot/LLM/Metrics Evolution with Kappa/%s_%s_Evolution_of_Metrics_kappa.png", hyp, top)
- ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+# ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 ```
 
-#### Plot recall, accuracy, precision, f1 and human consensus-LLaMa kappa across the threshold for LLaMa
+#### Plot recall, accuracy, precision, f1 and human consensus-LLaMa kappa across the threshold for LLaMa, Pilot.
 
 ```{r, warnings=FALSE}
 for (i in 1:nrow(unique_combinations_LLaMa)) {
@@ -445,7 +456,7 @@ for (i in 1:nrow(unique_combinations_LLaMa)) {
     geom_point(aes(y = f1, color = "F1"), size =  5) +
     geom_line(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), linewidth =  1) +
     geom_point(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), size =  5) +
-    scale_color_manual(values = colors) + 
+    scale_color_manual(values = colors_LLaMa) + 
     scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by = 0.1))+
     labs(title = paste("Prompt:", hypothesis_LLaMa[as.numeric(unique_combinations_LLaMa$hyp[i])], " Topic:", labels_LLaMa[as.numeric(unique_combinations_LLaMa$top[i])]),
          x = "Threshold", y = "Value", color = "Metric") +
@@ -455,12 +466,15 @@ for (i in 1:nrow(unique_combinations_LLaMa)) {
           text = element_text(size =  12))
   # Uncomment to save the figure
   filename <- sprintf("Results/Pilot/LLaMa/Metrics Evolution with Kappa/%s_%s_Evolution_of_Metrics_kappa.png", hyp, top)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+#  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 ```
 
-#### Plot recall, accuracy, precision, f1 and Fleiss kappa across the threshold for LLMs
+#### Plot recall, accuracy, precision, f1 and Fleiss kappa across the threshold for LLM, Pilot.
+
+This figure corresponds to Figure 1 in the Appendix and specifically represents the healthcare topic.
+
 
 ```{r, warnings=FALSE}
 for (i in 1:nrow(unique_combinations_LLM)) {
@@ -478,8 +492,8 @@ for (i in 1:nrow(unique_combinations_LLM)) {
     geom_point(aes(y = accuracy, color = "Accuracy"), size =  5) +
     geom_line(aes(y = f1, color = "F1"), linewidth =  1) +
     geom_point(aes(y = f1, color = "F1"), size =  5) +
-    geom_line(aes(y = kappa, color = "Humans-LLM 3 codes kappa"), linewidth =  1) +
-    geom_point(aes(y = kappa, color = "Humans-LLM 3 codes kappa"), size =  5) +
+    geom_line(aes(y = kappa_fleiss, color = "Humans-LLM 3 codes kappa"), linewidth =  1) +
+    geom_point(aes(y = kappa_fleiss, color = "Humans-LLM 3 codes kappa"), size =  5) +
     scale_color_manual(values = colors) + 
     scale_y_continuous(limits=c(-0.07,1),breaks=seq(0,1,by = 0.1))+
     labs(title = paste("Prompt:", hypothesis_LLM[as.numeric(unique_combinations_LLM$hyp[i])], " Topic:", labels_LLM[as.numeric(unique_combinations_LLM$top[i])]),
@@ -490,11 +504,12 @@ for (i in 1:nrow(unique_combinations_LLM)) {
           text = element_text(size =  12))
   # Uncomment to save the plot
   filename <- sprintf("Results/Pilot/LLM/With Kappa Fleiss/%s_%s_Evolution_of_Metrics_kappa_fleiss.png", hyp, top)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 ```
-#### Plot recall, accuracy, precision, f1 and Fleiss kappa across the threshold for LLaMa
+
+#### Plot recall, accuracy, precision, f1 and Fleiss kappa across the threshold for LLaMa, Pilot.
 
 ```{r, warnings=FALSE}
 for (i in 1:nrow(unique_combinations_LLaMa)) {
@@ -512,9 +527,9 @@ for (i in 1:nrow(unique_combinations_LLaMa)) {
     geom_point(aes(y = accuracy, color = "Accuracy"), size =  5) +
     geom_line(aes(y = f1, color = "F1"), linewidth =  1) +
     geom_point(aes(y = f1, color = "F1"), size =  5) +
-    geom_line(aes(y = kappa, color = "Humans-LLaMa 3 codes kappa"), linewidth =  1) +
-    geom_point(aes(y = kappa, color = "Humans-LLaMa 3 codes kappa"), size =  5) +
-    scale_color_manual(values = colors) + 
+    geom_line(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa"), linewidth =  1) +
+    geom_point(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa"), size =  5) +
+    scale_color_manual(values = colors_LLaMa) + 
     scale_y_continuous(limits=c(-0.07,1),breaks=seq(0,1,by = 0.1))+
     labs(title = paste("Prompt:", hypothesis_LLaMa[as.numeric(unique_combinations_LLaMa$hyp[i])], " Topic:", labels_LLaMa[as.numeric(unique_combinations_LLaMa$top[i])]),
          x = "Threshold", y = "Value", color = "Metric") +
@@ -524,12 +539,12 @@ for (i in 1:nrow(unique_combinations_LLaMa)) {
           text = element_text(size =  12))
   # Uncomment to save the plot
   filename <- sprintf("Results/Pilot/LLaMa/With Kappa Fleiss/%s_%s_Evolution_of_Metrics_kappa_fleiss.png", hyp, top)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 ```
 
-#### Plot different combinations of Cohen's kappas and Fleiss' Kappa for LLLMs
+#### Plot different combinations of Cohen's kappas and Fleiss' Kappa for LLM, Pilot.
 
 ```{r, warnings=FALSE}
 for (i in 1:nrow(unique_combinations_LLM)) {
@@ -558,7 +573,7 @@ for (i in 1:nrow(unique_combinations_LLM)) {
       theme_minimal() +
       theme(panel.background = element_rect(fill = "white", color = NA),
             legend.position = "bottom",
-            text = element_text(size =  7))
+            text = element_text(size =  5))
    # Uncomment to save the plot 
     filename <- sprintf("Results/Pilot/LLM/kappas evolution/%s_%s_Evolution_of_kappas.png", hyp, top)
     ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
@@ -566,7 +581,7 @@ for (i in 1:nrow(unique_combinations_LLM)) {
 } 
 ```
 
-#### Plot different combinations of Cohen's kappas and Fleiss' Kappa for LLaMa
+#### Plot different combinations of Cohen's kappas and Fleiss' Kappa for LLaMa, Pilot.
 
 ```{r, warnings=FALSE}
 for (i in 1:nrow(unique_combinations_LLaMa)) {
@@ -580,31 +595,31 @@ for (i in 1:nrow(unique_combinations_LLaMa)) {
     plot <- ggplot(subset, aes(x = TH)) +
       geom_line(aes(y = kappa_C1C2, color = "Code 1-Code 2 kappa"), linewidth =  1) +
       geom_point(aes(y = kappa_C1C2, color = "Code 1-Code 2 kappa"), size =  5) +
-      geom_line(aes(y = kappa_C1BART, color = "Code 1-LLaMa kappa"), linewidth =  1) +
-      geom_point(aes(y = kappa_C1BART, color = "Code 1-LLaMa kappa"), size =  5) +
-      geom_line(aes(y = kappa_C2BART, color = "Code 2-LLaMa kappa"), linewidth =  1) +
-      geom_point(aes(y = kappa_C2BART, color = "Code 2-LLaMa kappa"), size =  5) +
+      geom_line(aes(y = kappa_C1LLaMa, color = "Code 1-LLaMa kappa"), linewidth =  1) +
+      geom_point(aes(y = kappa_C1LLaMa, color = "Code 1-LLaMa kappa"), size =  5) +
+      geom_line(aes(y = kappa_C2LLaMa, color = "Code 2-LLaMa kappa"), linewidth =  1) +
+      geom_point(aes(y = kappa_C2LLaMa, color = "Code 2-LLaMa kappa"), size =  5) +
       geom_line(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa"), linewidth =  1) +
       geom_point(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa"), size =  5) +
       geom_line(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), linewidth =  1) +
       geom_point(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), size =  5) +
-      scale_color_manual(values = colors) + 
+      scale_color_manual(values = colors_LLaMa) + 
       scale_y_continuous(limits=c(-0.07,1),breaks=seq(0,1,by = 0.1))+
       labs(title = paste("Prompt:", hypothesis_LLaMa[as.numeric(unique_combinations_LLaMa$hyp[i])], " Topic:", labels_LLaMa[as.numeric(unique_combinations_LLaMa$top[i])]),
            x = "Threshold", y = "Value", color = "Metric") +
       theme_minimal() +
       theme(panel.background = element_rect(fill = "white", color = NA),
             legend.position = "bottom",
-            text = element_text(size =  7))
+            text = element_text(size =  5))
    # Uncomment to save the plot 
     filename <- sprintf("Results/Pilot/LLaMa/kappas evolution/%s_%s_Evolution_of_kappas.png", hyp, top)
-    ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+    #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
     print(plot)
   } 
 ```
 
 
-#### Analysis of F1 for LLMs
+#### Analysis of F1 for LLM
 
 Next, a detailed analysis of the F1 score is conducted
 
@@ -648,42 +663,188 @@ print(hypothesis_tables[[3]]) #The main subject of this text is
 print(hypothesis_tables[[4]]) #This text is related to
 ```
 
-## Analysis of 0.4 threshold for LLMs
+## Analysis of 0.4 threshold for LLM, Pilot Study. Part of the Figure 3. Appendix B.
 
 Preliminary analyses of the metrics allow focusing the process on the 0.4 threshold. Below is the graph presented in Figure 3 of the manuscript.
 
+
+We generate a large, high‑resolution plot for saving and publication, and a smaller simplified version for direct visualization inside RStudio.
 ```{r, warnings=FALSE}
 results_04 <- results_pilot_LLM[results_pilot_LLM$TH == "0.4",]
 results_04H1 <- results_04[results_04$hypothesis == "1",]
 results_04H1$topic_names<-c('Immigration','Health Care','Foreign Affairs', 'Elecctions', 'Civil Rights','Culture','Trump','Climate Change')
 
-plot <- ggplot(results_04H1, aes(x = topic_names)) +
-  geom_line(aes(y = recall, color = "Recall", group=1), linewidth =1) +
-  geom_point(aes(y = recall, color = "Recall"), size =  5) +
-  geom_line(aes(y = precision, color = "Precision", group=1), linewidth =  1) +
-  geom_point(aes(y = precision, color = "Precision"), size =  5) +
-  geom_line(aes(y = accuracy, color = "Accuracy", group=1), linewidth =  1) +
-  geom_point(aes(y = accuracy, color = "Accuracy"), size =  5) +
-  geom_line(aes(y = f1, color = "F1", group=1), linewidth =  1) +
-  geom_point(aes(y = f1, color = "F1"), size =  5) +
-  geom_line(aes(y = kappa_fleiss, color = "Humans-LLM 3 codes kappa", group=1), linewidth =  1) +
-  geom_point(aes(y = kappa_fleiss, color = "Humans-LLM 3 codes kappa"), size =  5) +
-  geom_line(aes(y = kappa, color = "Human Consensus-LLM 2 codes kappa", group=1), linewidth =  1) +
-  geom_point(aes(y = kappa, color = "Human Consensus-LLM 2 codes kappa"), size =  5) +
-  scale_color_manual(values = colors) + 
-  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by = 0.2))+
-  labs(x = "", y = "Value", color = "Metric") +
-  theme_minimal() +
-  theme(panel.background = element_rect(fill = "white", color = NA),
-        legend.position = "bottom",
-        text = element_text(size =  12))
-# Uncomment to save the plot
- filename <- sprintf("Results/Pilot/LLM/Evolution_of_topics4_th04.png")
- ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
-print(plot)
+results_long <- results_04H1 %>%
+  pivot_longer(
+    cols=c(accuracy,precision,recall,
+           f1,kappa_fleiss,kappa),
+    names_to="Metric",
+    values_to="Value"
+  )
+
+results_long$Metric <- factor(
+  results_long$Metric,
+  levels=c("accuracy","precision","recall",
+           "f1","kappa_fleiss","kappa"),
+  labels=c("Accuracy",
+           "Precision",
+           "Recall",
+           "F1",
+           "Humans-LLM 3 codes kappa",
+           "Human Consensus-LLM 2 codes kappa")
+)
 ```
 
-## Analysis of 0.4 threshold for LLaMa
+We generate a large, high‑resolution plot for saving and publication, and a smaller simplified version for direct visualization inside RStudio.
+
+```{r,warnings=FALSE}
+plot <- ggplot(results_long,
+               aes(topic_names, Value, fill=Metric))+
+
+    geom_col(position=position_dodge(.8),
+             width=.5,
+             alpha=.35)+
+
+    geom_point(aes(colour=Metric),
+               position=position_dodge(.8),
+               size=9)+
+
+    scale_fill_manual(values=colors)+
+    scale_colour_manual(values=colors)+
+
+    scale_y_continuous(limits=c(0,1),
+                       breaks=seq(0,1,.2))+
+
+    labs(x="",y="Value",
+         fill="Metric",
+         colour="Metric")+
+
+    theme_minimal()+
+  theme(
+    legend.position = "bottom",
+      legend.margin = margin(t = 0),    
+    legend.spacing.y = unit(0.2, "cm"),     
+    plot.margin = margin(b = 2, t = 5),   
+    text = element_text(size = 28),
+    axis.text.x = element_text(size = 28, angle = 60, hjust =0.8, vjust=1, face='bold'),
+    axis.text.y = element_text(size = 28),
+    axis.title = element_text(size = 28),
+    legend.title = element_text(size = 30),
+    legend.text = element_text(size = 28)
+)
+
+#ggsave("Results/Pilot/LLM/New_BarsPoints4_pilot_LLM.png",    plot,width=23,height=13,bg="white")
+```
+
+The following version ensures the full plot renders correctly inside RStudio.
+
+```{r, warnings=FALSE}
+plot_view <- ggplot(results_long,
+                    aes(topic_names, Value, fill = Metric)) +
+  
+  # Large but balanced bars
+  geom_col(position = position_dodge(width = 0.55),
+           width = 0.4,        # wide bars, but not too wide
+           alpha = 0.4) +      # lighter fill for clarity
+  
+  # Small points for clarity
+  geom_point(aes(colour = Metric),
+             position = position_dodge(width = 0.55),
+             size = 1.5) +
+  
+  # Manual color scales
+  scale_fill_manual(values = colors) +
+  scale_colour_manual(values = colors) +
+  
+  # Y-axis limits and breaks
+  scale_y_continuous(limits = c(0, 1),
+                     breaks = seq(0, 1, 0.2)) +
+  
+  # Axis labels
+  labs(x = "",
+       y = "Value",
+       fill = "Metric",
+       colour = "Metric") +
+  
+  # Prevent clipping of long labels
+  coord_cartesian(clip = "off") +
+  
+  # Compact legend (single guide)
+  guides(
+    fill = guide_legend(
+      override.aes = list(size = 1.2, alpha = 0.6),
+      ncol = 3
+    )
+  ) +
+  
+  # Theme adjustments for RStudio visibility
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.box = "horizontal",
+    legend.key.size = unit(0.3, "lines"),
+    legend.spacing.x = unit(0.15, "lines"),
+    
+    # General text size
+    text = element_text(size = 9),
+    
+    # X-axis labels
+    axis.text.x = element_text(size = 6, angle = 55, hjust = 1, face = "bold", margin = margin(t = 2)),
+    
+    # Y-axis labels
+    axis.text.y = element_text(size = 8),
+    
+    # Axis titles
+    axis.title = element_text(size = 9),
+    
+    # Legend text
+    legend.title = element_text(size = 9),
+    legend.text  = element_text(size = 8),
+    
+    # Panel margins (balanced)
+    plot.margin = margin(60, 60, 60, 60)
+  )
+print(plot_view)
+```
+
+We then proceeded with a correlation analysis, the results of which are reported in Table A2 in the Appendix.
+
+```{r, warnings=FALSE}
+# Generate names with structure hypothesis/topics
+column_names <- as.vector(outer(labels, hypothesis, paste, sep = "_"))
+# Rename variables to automatically calculate correlation matrices
+colnames(LLM)[3:34] <- column_names
+
+# List to store the correlation matrices
+correlation_matrices <- list()
+
+# Iterate over the topics
+for (topic in labels) {
+  # Select the columns for the topic with the different hypotheses
+  columns_to_select <- paste(topic, hypothesis, sep = "_")
+  selected_columns <- LLM[, columns_to_select]
+  
+  # Calculate the correlation matrix
+  cor_matrix <- cor(selected_columns, use = "complete.obs")  
+  # Use "complete.obs" to omit NA values if needed
+  
+  # Store the correlation matrix in the list
+  correlation_matrices[[topic]] <- cor_matrix
+}
+
+# View the correlation matrix for a specific topic, for example, "Immigration"
+print(correlation_matrices[["Immigration"]])
+corr_foraff = correlation_matrices[["Foreign Affairs"]]
+corr_culture = correlation_matrices[["Culture"]]
+corr_immigration = correlation_matrices[["Immigration"]]
+corr_trump = correlation_matrices[["Trump"]]
+corr_health = correlation_matrices[["Health Care"]]
+corr_elections = correlation_matrices[["Elections"]]
+corr_civ_rights= correlation_matrices[["Civil Rights"]]
+corr_EnvEnCli = correlation_matrices[["Climate Change"]]
+```
+
+## Analysis of 0.4 threshold for LLaMa, Pilot Study. Bottom part of the Figure 3. Appendix
 
 Preliminary analyses of the metrics allow focusing the process on the 0.4 threshold. Below is the graph presented in Figure 3 of the manuscript.
 
@@ -692,33 +853,143 @@ results_04 <- results_pilot_LLaMa[results_pilot_LLaMa$TH == "0.4",]
 results_04H1 <- results_04[results_04$hypothesis == "1",]
 results_04H1$topic_names<-c('Immigration','Health Care','Foreign Affairs', 'Elecctions', 'Civil Rights','Culture','Trump','Climate Change')
 
-plot <- ggplot(results_04H1, aes(x = topic_names)) +
-  geom_line(aes(y = recall, color = "Recall", group=1), linewidth =1) +
-  geom_point(aes(y = recall, color = "Recall"), size =  5) +
-  geom_line(aes(y = precision, color = "Precision", group=1), linewidth =  1) +
-  geom_point(aes(y = precision, color = "Precision"), size =  5) +
-  geom_line(aes(y = accuracy, color = "Accuracy", group=1), linewidth =  1) +
-  geom_point(aes(y = accuracy, color = "Accuracy"), size =  5) +
-  geom_line(aes(y = f1, color = "F1", group=1), linewidth =  1) +
-  geom_point(aes(y = f1, color = "F1"), size =  5) +
-  geom_line(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa", group=1), linewidth =  1) +
-  geom_point(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa"), size =  5) +
-  geom_line(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa", group=1), linewidth =  1) +
-  geom_point(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), size =  5) +
-  scale_color_manual(values = colors) + 
-  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by = 0.2))+
-  labs(x = "", y = "Value", color = "Metric") +
-  theme_minimal() +
-  theme(panel.background = element_rect(fill = "white", color = NA),
-        legend.position = "bottom",
-        text = element_text(size =  12))
-# Uncomment to save the plot
- filename <- sprintf("Results/Pilot/LLaMa/Evolution_of_topics4_th04.png")
- ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
-print(plot)
+
+
+results_long <- results_04H1 %>%
+  pivot_longer(
+    cols=c(accuracy,precision,recall,
+           f1,kappa_fleiss,kappa),
+    names_to="Metric",
+    values_to="Value"
+  )
+
+results_long$Metric <- factor(
+  results_long$Metric,
+  levels=c("accuracy","precision","recall",
+           "f1","kappa_fleiss","kappa"),
+  labels=c("Accuracy",
+           "Precision",
+           "Recall",
+           "F1",
+           "Humans-LLaMa 3 codes kappa",
+           "Human Consensus-LLaMa 2 codes kappa")
+)
 ```
 
-## Correlations analysis for LLMs     
+```{r,warnings=FALSE}
+plot <- ggplot(results_long,
+               aes(topic_names, Value, fill=Metric))+
+
+    geom_col(position=position_dodge(.8),
+             width=.5,
+             alpha=.35)+
+
+    geom_point(aes(colour=Metric),
+               position=position_dodge(.8),
+               size=9)+
+
+    scale_fill_manual(values=colors_LLaMa)+
+    scale_colour_manual(values=colors_LLaMa)+
+
+    scale_y_continuous(limits=c(0,1),
+                       breaks=seq(0,1,.2))+
+
+    labs(x="",y="Value",
+         fill="Metric",
+         colour="Metric")+
+
+    theme_minimal()+
+  theme(
+    legend.position = "bottom",
+      legend.margin = margin(t = 0),    
+    legend.spacing.y = unit(0.2, "cm"),     
+    plot.margin = margin(b = 2, t = 5),   
+    text = element_text(size = 28),
+    axis.text.x = element_text(size = 28, angle = 60, hjust =0.8, vjust=1, face='bold'),
+    axis.text.y = element_text(size = 28),
+    axis.title = element_text(size = 28),
+    legend.title = element_text(size = 30),
+    legend.text = element_text(size = 28)
+)
+
+#ggsave("Results/Pilot/LLaMa/New_BarsPoints4_pilot_LLaMa.png",      plot,width=23,height=13,bg="white")
+
+#print(plot)
+```
+
+
+The following version ensures the full plot renders correctly inside RStudio.
+
+```{r, warnings=FALSE}
+plot_view <- ggplot(results_long,
+                    aes(topic_names, Value, fill = Metric)) +
+  
+  # Large but balanced bars
+  geom_col(position = position_dodge(width = 0.55),
+           width = 0.4,        # wide bars, but not too wide
+           alpha = 0.4) +      # lighter fill for clarity
+  
+  # Small points for clarity
+  geom_point(aes(colour = Metric),
+             position = position_dodge(width = 0.55),
+             size = 1.5) +
+  
+  # Manual color scales
+  scale_fill_manual(values = colors_LLaMa) +
+  scale_colour_manual(values = colors_LLaMa) +
+  
+  # Y-axis limits and breaks
+  scale_y_continuous(limits = c(0, 1),
+                     breaks = seq(0, 1, 0.2)) +
+  
+  # Axis labels
+  labs(x = "",
+       y = "Value",
+       fill = "Metric",
+       colour = "Metric") +
+  
+  # Prevent clipping of long labels
+  coord_cartesian(clip = "off") +
+  
+  # Compact legend (single guide)
+  guides(
+    fill = guide_legend(
+      override.aes = list(size = 1.2, alpha = 0.6),
+      ncol = 3
+    )
+  ) +
+  
+  # Theme adjustments for RStudio visibility
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.box = "horizontal",
+    legend.key.size = unit(0.3, "lines"),
+    legend.spacing.x = unit(0.15, "lines"),
+    
+    # General text size
+    text = element_text(size = 9),
+    
+    # X-axis labels
+    axis.text.x = element_text(size = 6, angle = 55, hjust = 1, face = "bold", margin = margin(t = 2)),
+    
+    # Y-axis labels
+    axis.text.y = element_text(size = 8),
+    
+    # Axis titles
+    axis.title = element_text(size = 9),
+    
+    # Legend text
+    legend.title = element_text(size = 9),
+    legend.text  = element_text(size = 8),
+    
+    # Panel margins (balanced)
+    plot.margin = margin(60, 60, 60, 60)
+  )
+print(plot_view)
+```
+
+## Correlations analysis for LLM  
 This section presents a correlation analysis for each hypothesis–issue combination.
 ```{r, warnings=FALSE}
 # Generate names with structure hypothesis/topics
@@ -758,6 +1029,165 @@ corr_EnvEnCli = correlation_matrices[["EnvEnCli"]]
  Use the following line to save each correlation matrix as an XLSX file.
  ´write_xlsx(corr_foraff, "Results/Pilot/Correlations/corr_foraff")´.
  
+## Comparison: BART vs LLaMa, Pilot analysis. Appendix B, Figure 1.
+```{r, warnings=FALSE}
+# Iterate over each unique topic
+for (i in 1:nrow(unique_combinations_LLaMa)) {
+  
+  top <- unique_combinations_LLaMa$topic[i]
+  # Filter LLM data: ONLY hypothesis = 1
+  subset_LLM <- results_pilot_LLM[
+    results_pilot_LLM$hypothesis == 1 &
+    results_pilot_LLM$topic == top, 
+  ]
+  
+  # Filter LLaMa data
+  subset_LLaMa <- results_pilot_LLaMa[
+    results_pilot_LLaMa$hypothesis == 1 &
+    results_pilot_LLaMa$topic == top, 
+  ]
+  plot <- ggplot() +
+    
+    # =========================
+    # LLM: solid lines + circles
+    # =========================
+    geom_line(
+      data = subset_LLM,
+      aes(x = TH, y = recall, color = "Recall"),
+      linewidth = 1
+    ) +
+    geom_point(
+      data = subset_LLM,
+      aes(x = TH, y = recall, color = "Recall"),
+      shape = 16,
+      size = 5
+    ) +
+    
+    geom_line(
+      data = subset_LLM,
+      aes(x = TH, y = precision, color = "Precision"),
+      linewidth = 1
+    ) +
+    geom_point(
+      data = subset_LLM,
+      aes(x = TH, y = precision, color = "Precision"),
+      shape = 16,
+      size = 5
+    ) +
+    
+    geom_line(
+      data = subset_LLM,
+      aes(x = TH, y = accuracy, color = "Accuracy"),
+      linewidth = 1
+    ) +
+    geom_point(
+      data = subset_LLM,
+      aes(x = TH, y = accuracy, color = "Accuracy"),
+      shape = 16,
+      size = 5
+    ) +
+    
+    geom_line(
+      data = subset_LLM,
+      aes(x = TH, y = f1, color = "F1"),
+      linewidth = 1
+    ) +
+    geom_point(
+      data = subset_LLM,
+      aes(x = TH, y = f1, color = "F1"),
+      shape = 16,
+      size = 5
+    ) +
+    
+    # ============================
+    # LLaMa: dotted lines + stars
+    # ============================
+    geom_line(
+      data = subset_LLaMa,
+      aes(x = TH, y = recall, color = "Recall"),
+      linewidth = 1,
+      linetype = "dotted"
+    ) +
+    geom_point(
+      data = subset_LLaMa,
+      aes(x = TH, y = recall, color = "Recall"),
+      shape = 8,
+      size = 5
+    ) +
+    
+    geom_line(
+      data = subset_LLaMa,
+      aes(x = TH, y = precision, color = "Precision"),
+      linewidth = 1,
+      linetype = "dotted"
+    ) +
+    geom_point(
+      data = subset_LLaMa,
+      aes(x = TH, y = precision, color = "Precision"),
+      shape = 8,
+      size = 5
+    ) +
+    
+    geom_line(
+      data = subset_LLaMa,
+      aes(x = TH, y = accuracy, color = "Accuracy"),
+      linewidth = 1,
+      linetype = "dotted"
+    ) +
+    geom_point(
+      data = subset_LLaMa,
+      aes(x = TH, y = accuracy, color = "Accuracy"),
+      shape = 8,
+      size = 5
+    ) +
+    
+    geom_line(
+      data = subset_LLaMa,
+      aes(x = TH, y = f1, color = "F1"),
+      linewidth = 1,
+      linetype = "dotted"
+    ) +
+    geom_point(
+      data = subset_LLaMa,
+      aes(x = TH, y = f1, color = "F1"),
+      shape = 8,
+      size = 5
+    ) +
+    
+    # =========================
+    # General settings
+    # =========================
+    scale_color_manual(values = colors) +
+    scale_y_continuous(
+      limits = c(0, 1),
+      breaks = seq(0, 1, by = 0.1)
+    ) +
+    
+    labs(
+      title = paste(
+        "Prompt:", 
+        hypothesis_LLM[as.numeric(unique_combinations_LLM$hyp[i])],
+        "Topic:", 
+        labels_LLM[as.numeric(unique_combinations_LLM$top[i])]
+      ),
+      x = "Threshold",
+      y = "Value",
+      color = "Metric"
+    ) +
+    
+    theme_minimal() +
+    theme(
+      panel.background = element_rect(fill = "white", color = NA),
+      legend.position = "bottom",
+      text = element_text(size = 12)
+    )
+  
+  filename <- sprintf("Results/Pilot/Comparison/%s_%s_Evolution_of_metrics_comparison.png", hyp, top)
+  #  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  print(plot)
+}
+```
+ 
 # Main project
 
 Data for the main study are posts from the official X (Twitter) accounts of US Members of Congress and from a set of political influencers in the US. A list of all Member accounts is generated and added to this the accounts of fifty top political influencers identified by the advertising firm Amra & Elma.  An initial random sample of 70,546 posts was obtained for the combined list of accounts covering the period from January 1 to June 30, 2024, using the Brandwatch archive (see Appendix for more information about the accounts). This was then scaled down to a dataset manageable for human coders by drawing a random subsample of 4,500 posts for the main dataset. Results of the pilot analysis encourage the consideration of the prompt *h1:* "This text is about []". An expanded set of eighteen issues, labeled as *l1 - l18*, is considered: *Conspiratorial Logic*, *The Economy in General*, *Donald Trump*, *Joe Biden*, *Democrats*, *Republicans*, *MAGA*, *Jews and Antisemitism in the US*, *Healthcare*, *Reproductive Rights*, *Homelessness*, *Immigration*, *Climate Change*, *Electric Vehicles*, *Elections*, *January 6 Insurrection*, *Race Relations*, *Resistance to Social Change or Traditional Values*. 
@@ -781,7 +1211,7 @@ Initially, *main_data* has 4500 observations and 56 variables: each text is assi
 
 For example, for economy we have *EconTruth*, *EconCodeA* and *EconCodeB*.
 
-In this main porject, as these are real texts obtained from a social network, the writing is quite imprecise and irregular. Although BART performs very well with this type of writing, we briefly standardize the texts to be classified by converting everything to lowercase, cleaning up contractions, and removing emojis. We keep retweets, hashtags, and user mentions. If user mentions or hashtags should also be removed, it is enough to uncomment the corresponding line in the clean_text function.
+In this main project, as these are real texts obtained from a social network, the writing is quite imprecise and irregular. Although BART performs very well with this type of writing, we briefly standardize the texts to be classified by converting everything to lowercase, cleaning up contractions, and removing emojis. We keep retweets, hashtags, and user mentions. If user mentions or hashtags should also be removed, it is enough to uncomment the corresponding line in the clean_text function.
 
 ```{r, warnings=FALSE}
 clean_text <- function(text) {
@@ -914,7 +1344,7 @@ for (threshold in thresholds) {
 # for (name in names(threshold_dataframes)) { 
 # addWorksheet(wb, name)  
 # writeData(wb, name, threshold_dataframes[[name]])}
-# saveWorkbook(wb, "Data/binarizations.xlsx", overwrite = TRUE)
+# saveWorkbook(wb, "Data/main_binarizations_BART.xlsx", overwrite = TRUE)
 ```
 
 Next, we organize the variables in order to proceed with the comparison between the binarized BART classifications and those provided by the human coders.
@@ -928,12 +1358,12 @@ cols_data1 <- setdiff(names(LLM_copy), c("ID", "sequence", "clean_text", "TH"))
 
 ```
 
-Create an empty results DataFrame where we store, for each threshold and each hypothesis–issue combination, different goodness-of-fit metrics: False Positives (*FP*), False Negatives (*FN*), True Positives (*TP*), True Negatives (*TN*), threshold value (*TH*), *recall*, *precision*, *accuracy*, *f1*, Cohen's Kappa between human consensus and BART (*kappa*), Fleiss's kappa between human Code 1, Code 2 and BART (*kappa_fleiss*), Cohen's Kappa between human Code 1 and Code 2 (*kappa_C1C2*), Cohen's Kappa between human Code 1 and BART (*kappa_C1BART*), Cohen's Kappa between human Code 2 and BART (*kappa_C2BART*).
+Create an empty results DataFrame where we store, for each threshold and each issue, different goodness-of-fit metrics: False Positives (*FP*), False Negatives (*FN*), True Positives (*TP*), True Negatives (*TN*), threshold value (*TH*), *recall*, *precision*, *accuracy*, *f1*, Cohen's Kappa between human consensus and BART (*kappa*), Fleiss's kappa between human Code 1, Code 2 and BART (*kappa_fleiss*), Cohen's Kappa between human Code 1 and Code 2 (*kappa_C1C2*), Cohen's Kappa between human Code 1 and BART (*kappa_C1BART*), Cohen's Kappa between human Code 2 and BART (*kappa_C2BART*).
 
 For the calculation of recall, precision, accuracy, and F1, the consensus value of the human coders is considered as the ground truth.
 
 ```{r, warnings=FALSE}
-results_df <- data.frame(Issue=character(), FP=integer(), FN=integer(), TP=integer(), TN=integer(), TH=numeric(), recall=numeric(), precision=numeric(), accuracy=numeric(), f1 = numeric(),kappa=numeric(), topic=character(),hypothesis=character(), kappa_fleiss=numeric(), kappa_C1C2=numeric(),kappa_C1BART=numeric(), kappa_C2BART=numeric(), stringsAsFactors = FALSE)
+results_df <- data.frame(Issue=character(), FP=integer(), FN=integer(), TP=integer(), TN=integer(), TH=numeric(), recall=numeric(), precision=numeric(), accuracy=numeric(), f1 = numeric(),kappa=numeric(), kappa_fleiss=numeric(), kappa_C1C2=numeric(),kappa_C1BART=numeric(), kappa_C2BART=numeric(), stringsAsFactors = FALSE)
 ```
 Next, through the use of loops, all possible binarizations are iterated over, and the previously defined metrics are computed accordingly.
 ```{r, warnings=FALSE}
@@ -984,8 +1414,8 @@ for(df_name in names(threshold_dataframes)){
   }}
 
 # Uncomment to save ´results_df´as a XLSX file.
- write_xlsx(results_df, "Results/Main project/BART/results_BART.xlsx")
-results_BART = results_df
+ write_xlsx(results_df, "Results/Main project/BART/results_BART_prueba.xlsx")
+results_main_BART = results_df
 ```
 
 Once all the metrics are calculated, they are represented in different contexts to facilitate their analysis and enable a decision to be made regarding the threshold.
@@ -995,10 +1425,10 @@ The metrics obtained for the different thresholds and issues are located in the 
 ```{r, warnings=FALSE}
 colors <- c("Recall" = "#FFD700", "Precision" = "#66CD00", "Accuracy" = "#FF3030", "F1" = "#00BFFF", "Human Consensus-BART 2 codes kappa"="#D15FEE", "Humans-BART 3 codes kappa"="#FFC0CB", "Code 1-Code 2 kappa"="#C1CDC1", "Code 1-BART kappa"="#8B0000", "Code 2-BART kappa"="#27408B")
 
-unique_combinations <- unique(results_df[, c("Issue")])
+unique_combinations <- unique(results_df$Issue)
 ```
 
-#### Plot recall, accuracy, precision and f1 across the threshold
+#### Plot recall, accuracy, precision and f1 across the threshold. BART, main.
 
 ```{r,warnings=FALSE}
 for (i in 1:length(unique_combinations)) {
@@ -1019,13 +1449,13 @@ for (i in 1:length(unique_combinations)) {
     labs(title = paste("Topic: ", top), x = "Threshold", y = "Value", color = "Metric") + theme_minimal() + theme(panel.background = element_rect(fill = "white", color = NA), legend.position = "bottom", text = element_text(size =  12))
   filename <- sprintf("Results/Main Project/BART/Metrics Evolution/%s_Evolution_of_Metrics.png",  top)
   ## Uncomment to save the figure
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 ```
 
 
-#### Plot recall, accuracy, precision, f1 and human consensus-BART kappa across the threshold
+#### Plot recall, accuracy, precision, f1 and human consensus-BART kappa across the threshold. Bart, main.
 
 ```{r,warnings=FALSE}
 for (i in 1:length(unique_combinations)) {
@@ -1052,13 +1482,13 @@ for (i in 1:length(unique_combinations)) {
           legend.position = "bottom",
           text = element_text(size =  12))
   filename <- sprintf("Results/Main Project/BART/Metrics Evolution with Kappa/%s_Evolution_of_Metrics_kappa.png",  top)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 
 ```
 
-#### Plot recall, accuracy, precision, f1 and Fleiss kappa across the threshold
+#### Plot recall, accuracy, precision, f1 and Fleiss kappa across the threshold. BART, main.
 
 ```{r,warnings=FALSE}
 for (i in 1:length(unique_combinations)) {
@@ -1087,13 +1517,13 @@ for (i in 1:length(unique_combinations)) {
           legend.position = "bottom",
           text = element_text(size =  12))
   filename <- sprintf("Results/Main Project/BART/With Kappa Fleiss/%s_Evolution_of_Metrics_kappa_fleiss.png", topic)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 
 ```
 
-#### Plot different combinations of Cohen’s kappas and Fleiss’ Kappa
+#### Plot different combinations of Cohen’s kappas and Fleiss’ Kappa. BART, main.
 
 ```{r,warnings=FALSE}
 for (i in 1:length(unique_combinations)) {
@@ -1122,50 +1552,150 @@ for (i in 1:length(unique_combinations)) {
     theme_minimal() +
     theme(panel.background = element_rect(fill = "white", color = NA),
           legend.position = "bottom",
-          text = element_text(size =  12))
+          text = element_text(size =  5))
   
   filename <- sprintf("Results/Main Project/BART/kappas evolution/%s_Evolution_of_kappas.png", topic)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }  
 ```
 
 
-## Analysis of 0.4 threshold
+## Analysis of 0.4 threshold. Figure 1. BART, Main Analysis.
 
-Preliminary analyses of the metrics allow focusing the process on the 0.4 threshold. Below is the graph presented in Figure 4 of the manuscript.
+Preliminary analyses of the metrics allow focusing the process on the 0.4 threshold. Below is the graph presented in Figure 1 of the manuscript.
+
 
 ```{r, warnings=FALSE}
-results_04 <- results_df[results_df$TH == "0.4",]
+results_04 <- results_main_BART[results_main_BART$TH == "0.4",]
 results_04$Issue <- factor(results_04$Issue, levels = unique(results_04$Issue))
-plot <- ggplot(results_04, aes(x = Issue)) +
-  geom_line(aes(y = recall, color = "Recall", group=1), linewidth =1) +
-  geom_point(aes(y = recall, color = "Recall"), size =  5) +
-  geom_line(aes(y = precision, color = "Precision", group=1), linewidth =  1) +
-  geom_point(aes(y = precision, color = "Precision"), size =  5) +
-  geom_line(aes(y = accuracy, color = "Accuracy", group=1), linewidth =  1) +
-  geom_point(aes(y = accuracy, color = "Accuracy"), size =  5) +
-  geom_line(aes(y = f1, color = "F1", group=1), linewidth =  1) +
-  geom_point(aes(y = f1, color = "F1"), size =  5) +
-  geom_line(aes(y = kappa_fleiss, color = "Humans-BART 3 codes kappa", group=1), linewidth =  1) +
-  geom_point(aes(y = kappa_fleiss, color = "Humans-BART 3 codes kappa"), size =  5) +
-  geom_line(aes(y = kappa, color = "Human Consensus-BART 2 codes kappa", group=1), linewidth =  1) +
-  geom_point(aes(y = kappa, color = "Human Consensus-BART 2 codes kappa"), size =  5) +
-  scale_color_manual(values = colors) + 
-  scale_y_continuous(limits=c(-0.09,1),breaks=seq(0,1,by = 0.2))+
-  labs(  
-    #labs(title = paste("Evolution by Topics for Prompt 1"),
-    x = "", y = "Value", color = "Metric") +
-  theme_minimal() +
-  theme(panel.background = element_rect(fill = "white", color = NA),
-        legend.position = "bottom",
-        text = element_text(size =  12),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +  # <--- Ajuste clave
-  scale_x_discrete(expand = expansion(mult = c(0.05, 0.05))) 
 
-filename <- sprintf("Results/Main Project/BART/Main Study-Evolution_of_topics4_04.png")
-ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
-print(plot)
+results_long <- results_04 %>%
+  pivot_longer(
+    cols=c(recall,precision,accuracy,f1,kappa_fleiss,kappa),
+    names_to="Metric",
+    values_to="Value"
+  )
+
+results_long$Metric <- factor(
+  results_long$Metric,
+  levels=c("accuracy","precision","recall",
+           "f1","kappa_fleiss","kappa"),
+  labels=c("Accuracy",
+           "Precision",
+           "Recall",
+           "F1",
+           "Humans-BART 3 codes kappa",
+           "Human Consensus-BART 2 codes kappa")
+)
+```
+
+We generate a large, high‑resolution plot for saving and publication, and a smaller simplified version for direct visualization inside RStudio.
+
+```{r,warnings=FALSE}
+plot <- ggplot(results_long,
+               aes(Issue, Value, fill=Metric))+
+  
+  geom_col(position=position_dodge(.8),
+           width=.5,
+           alpha=.35)+
+  
+  geom_point(aes(colour=Metric),
+             position=position_dodge(.8),
+             size=8)+
+  
+  scale_fill_manual(values=colors)+
+  scale_colour_manual(values=colors)+
+  
+  scale_y_continuous(limits=c(-0.1,1),
+                     breaks=seq(0,1,.2))+
+  
+  labs(x="",y="Value",
+       fill="Metric",
+       colour="Metric")+
+  
+  theme_minimal()+
+  theme(
+    legend.position = "bottom",
+    text = element_text(size = 42),
+    axis.text.x = element_text(size = 44, angle = 60, hjust = 1, face='bold'),
+    axis.text.y = element_text(size = 40),
+    axis.title = element_text(size = 44),
+    legend.title = element_text(size = 44),
+    legend.text = element_text(size = 42)
+  )
+
+#ggsave("Results/Main Project/BART/New_BarsPoints4_main_BART.png",      plot,width=48,height=27,dpi=300,bg="white")
+```
+The following version is optimized for RStudio, using smaller text and smaller legend symbols to ensure that the full plot is displayed correctly within the RStudio environment.
+
+```{r, warnings=FALSE}
+plot_view <- ggplot(results_long,
+                    aes(Issue, Value, fill = Metric)) +
+  
+  # Large but balanced bars
+  geom_col(position = position_dodge(width = 0.55),
+           width = 0.4,        # wide bars, but not too wide
+           alpha = 0.4) +      # lighter fill for clarity
+  
+  # Small points for clarity
+  geom_point(aes(colour = Metric),
+             position = position_dodge(width = 0.55),
+             size = 1.5) +
+  
+  # Manual color scales
+  scale_fill_manual(values = colors) +
+  scale_colour_manual(values = colors) +
+  
+  # Y-axis limits and breaks
+  scale_y_continuous(limits = c(-0.1, 1),
+                     breaks = seq(0, 1, 0.2)) +
+  
+  # Axis labels
+  labs(x = "",
+       y = "Value",
+       fill = "Metric",
+       colour = "Metric") +
+  
+  # Prevent clipping of long labels
+  coord_cartesian(clip = "off") +
+  
+  # Compact legend (single guide)
+  guides(
+    fill = guide_legend(
+      override.aes = list(size = 1.2, alpha = 0.6),
+      ncol = 3
+    )
+  ) +
+  
+  # Theme adjustments for RStudio visibility
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.box = "horizontal",
+    legend.key.size = unit(0.3, "lines"),
+    legend.spacing.x = unit(0.15, "lines"),
+    
+    # General text size
+    text = element_text(size = 9),
+    
+    # X-axis labels
+    axis.text.x = element_text(size = 6, angle = 55, hjust = 1, face = "bold", margin = margin(t = 2)),
+    
+    # Y-axis labels
+    axis.text.y = element_text(size = 8),
+    
+    # Axis titles
+    axis.title = element_text(size = 9),
+    
+    # Legend text
+    legend.title = element_text(size = 9),
+    legend.text  = element_text(size = 8),
+    
+    # Panel margins (balanced)
+    plot.margin = margin(60, 60, 60, 60)
+  )
+print(plot_view)
 ```
 
 ## Classification Process with LLaMa
@@ -1230,7 +1760,7 @@ for (threshold in thresholds) {
 # for (name in names(threshold_dataframes)) { 
 # addWorksheet(wb, name)  
 # writeData(wb, name, threshold_dataframes[[name]])}
-# saveWorkbook(wb, "Data/binarizations.xlsx", overwrite = TRUE)
+# saveWorkbook(wb, "Data/main_binarizations_LLaMa", overwrite = TRUE)
 ```
 
 Next, we organize the variables in order to proceed with the comparison between the binarized LLaMa classifications and those provided by the human coders.
@@ -1249,7 +1779,7 @@ Create an empty results DataFrame where we store, for each threshold and each hy
 For the calculation of recall, precision, accuracy, and F1, the consensus value of the human coders is considered as the ground truth.
 
 ```{r, warnings=FALSE}
-results_df <- data.frame(Issue=character(), FP=integer(), FN=integer(), TP=integer(), TN=integer(), TH=numeric(), recall=numeric(), precision=numeric(), accuracy=numeric(), f1 = numeric(),kappa=numeric(), topic=character(),hypothesis=character(), kappa_fleiss=numeric(), kappa_C1C2=numeric(),kappa_C1LLaMa=numeric(), kappa_C2LLaMa=numeric(), stringsAsFactors = FALSE)
+results_df <- data.frame(Issue=character(), FP=integer(), FN=integer(), TP=integer(), TN=integer(), TH=numeric(), recall=numeric(), precision=numeric(), accuracy=numeric(), f1 = numeric(),kappa=numeric(), kappa_fleiss=numeric(), kappa_C1C2=numeric(),kappa_C1LLaMa=numeric(), kappa_C2LLaMa=numeric(), stringsAsFactors = FALSE)
 ```
 Next, through the use of loops, all possible binarizations are iterated over, and the previously defined metrics are computed accordingly.
 ```{r, warnings=FALSE}
@@ -1300,8 +1830,8 @@ for(df_name in names(threshold_dataframes)){
   }}
 
 # Uncomment to save ´results_df´as a XLSX file.
- write_xlsx(results_df, "Results/Main project/LLaMa/results_LLaMa.xlsx")
-results_LLaMa = results_df
+ #write_xlsx(results_df, "Results/Main project/LLaMa/results_LLaMa.xlsx")
+results_main_LLaMa = results_df
 ```
 
 Once all the metrics are calculated, they are represented in different contexts to facilitate their analysis and enable a decision to be made regarding the threshold.
@@ -1309,12 +1839,11 @@ Once all the metrics are calculated, they are represented in different contexts 
 The metrics obtained for the different thresholds and issues are located in the file `results_LLaMA.xlsx`, within the `Results/Main Project/LLaMa` folder. 
 
 ```{r, warnings=FALSE}
-colors <- c("Recall" = "#FFD700", "Precision" = "#66CD00", "Accuracy" = "#FF3030", "F1" = "#00BFFF", "Human Consensus-LLaMa 2 codes kappa"="#D15FEE", "Humans-LLaMa 3 codes kappa"="#FFC0CB", "Code 1-Code 2 kappa"="#C1CDC1", "Code 1-LLaMa kappa"="#8B0000", "Code 2-LLaMa kappa"="#27408B")
 
 unique_combinations <- unique(results_df[, c("Issue")])
 ```
 
-#### Plot recall, accuracy, precision and f1 across the threshold
+#### Plot recall, accuracy, precision and f1 across the threshold. LLaMa, main.
 
 ```{r,warnings=FALSE}
 for (i in 1:length(unique_combinations)) {
@@ -1330,18 +1859,18 @@ for (i in 1:length(unique_combinations)) {
     geom_point(aes(y = accuracy, color = "Accuracy"), size =  5) +
     geom_line(aes(y = f1, color = "F1"), linewidth =  1) +
     geom_point(aes(y = f1, color = "F1"), size =  5) +
-    scale_color_manual(values = colors) +  
+    scale_color_manual(values = colors_LLaMa) +  
     scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by = 0.1))+
     labs(title = paste("Topic: ", top), x = "Threshold", y = "Value", color = "Metric") + theme_minimal() + theme(panel.background = element_rect(fill = "white", color = NA), legend.position = "bottom", text = element_text(size =  12))
   filename <- sprintf("Results/Main Project/LLaMa/Metrics Evolution/%s_Evolution_of_Metrics.png",  top)
   ## Uncomment to save the figure
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+ # ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 ```
 
 
-#### Plot recall, accuracy, precision, f1 and human consensus-LLaMa kappa across the threshold
+#### Plot recall, accuracy, precision, f1 and human consensus-LLaMa kappa across the threshold. LLaMa, main.
 
 ```{r,warnings=FALSE}
 for (i in 1:length(unique_combinations)) {
@@ -1360,7 +1889,7 @@ for (i in 1:length(unique_combinations)) {
     geom_point(aes(y = f1, color = "F1"), size =  5) +
     geom_line(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), linewidth =  1) +
     geom_point(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), size =  5) +
-    scale_color_manual(values = colors) + 
+    scale_color_manual(values = colors_LLaMa) + 
     scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by = 0.1))+
     labs(title = paste("Topic: ", top), x = "Threshold", y = "Value", color = "Metric") + theme_minimal() + theme(panel.background = element_rect(fill = "white", color = NA), legend.position = "bottom", text = element_text(size =  12))+
     theme_minimal() +
@@ -1368,13 +1897,13 @@ for (i in 1:length(unique_combinations)) {
           legend.position = "bottom",
           text = element_text(size =  12))
   filename <- sprintf("Results/Main Project/LLaMa/Metrics Evolution with Kappa/%s_Evolution_of_Metrics_kappa.png",  top)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 
 ```
 
-#### Plot recall, accuracy, precision, f1 and Fleiss kappa across the threshold
+#### Plot recall, accuracy, precision, f1 and Fleiss kappa across the threshold. LLaMa, main.
 
 ```{r,warnings=FALSE}
 for (i in 1:length(unique_combinations)) {
@@ -1394,8 +1923,8 @@ for (i in 1:length(unique_combinations)) {
     geom_point(aes(y = f1, color = "F1"), size =  5) +
     geom_line(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa"), linewidth =  1) +
     geom_point(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa"), size =  5) +
-    scale_color_manual(values = colors) + 
-    scale_y_continuous(limits=c(-0.26,1),breaks=seq(0,1,by = 0.1))+
+    scale_color_manual(values = colors_LLaMa) + 
+    scale_y_continuous(limits=c(-0.26,1),breaks = c(-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1))+
     labs(title = paste("Topic: ", topic),
          x = "Threshold", y = "Value", color = "Metric")+
     theme_minimal() +
@@ -1403,13 +1932,13 @@ for (i in 1:length(unique_combinations)) {
           legend.position = "bottom",
           text = element_text(size =  12))
   filename <- sprintf("Results/Main Project/LLaMa/With Kappa Fleiss/%s_Evolution_of_Metrics_kappa_fleiss.png", topic)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+ # ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }
 
 ```
 
-#### Plot different combinations of Cohen’s kappas and Fleiss’ Kappa
+#### Plot different combinations of Cohen’s kappas and Fleiss’ Kappa. LLaMa, main.
 
 ```{r,warnings=FALSE}
 for (i in 1:length(unique_combinations)) {
@@ -1429,7 +1958,7 @@ for (i in 1:length(unique_combinations)) {
     geom_point(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa"), size =  5) +
     geom_line(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), linewidth =  1) +
     geom_point(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), size =  5) +
-    scale_color_manual(values = colors) + 
+    scale_color_manual(values = colors_LLaMa) + 
     scale_y_continuous(limits=c(-0.26,1),breaks=seq(0,1,by = 0.1))+
     labs(title = paste("Topic: ", topic),
          x = "Threshold", y = "Value", color = "Metric") +
@@ -1438,48 +1967,148 @@ for (i in 1:length(unique_combinations)) {
     theme_minimal() +
     theme(panel.background = element_rect(fill = "white", color = NA),
           legend.position = "bottom",
-          text = element_text(size =  12))
+          text = element_text(size =  5))
   
   filename <- sprintf("Results/Main Project/LLaMa/kappas evolution/%s_Evolution_of_kappas.png", topic)
-  ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
+  #ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
   print(plot)
 }  
 ```
 
 
-## Analysis of 0.4 threshold
+## Analysis of 0.4 threshold. Figure 2. LLaMa, Main Analysis.
 
-Preliminary analyses of the metrics allow focusing the process on the 0.4 threshold. Below is the graph presented in Figure 4 of the manuscript.
+Preliminary analyses of the metrics allow focusing the process on the 0.4 threshold. Below is the graph presented in Figure 2 of the manuscript.
 
 ```{r, warnings=FALSE}
-results_04 <- results_df[results_df$TH == "0.4",]
+results_04 <- results_main_LLaMa[results_main_LLaMa$TH == "0.4",]
 results_04$Issue <- factor(results_04$Issue, levels = unique(results_04$Issue))
-plot <- ggplot(results_04, aes(x = Issue)) +
-  geom_line(aes(y = recall, color = "Recall", group=1), linewidth =1) +
-  geom_point(aes(y = recall, color = "Recall"), size =  5) +
-  geom_line(aes(y = precision, color = "Precision", group=1), linewidth =  1) +
-  geom_point(aes(y = precision, color = "Precision"), size =  5) +
-  geom_line(aes(y = accuracy, color = "Accuracy", group=1), linewidth =  1) +
-  geom_point(aes(y = accuracy, color = "Accuracy"), size =  5) +
-  geom_line(aes(y = f1, color = "F1", group=1), linewidth =  1) +
-  geom_point(aes(y = f1, color = "F1"), size =  5) +
-  geom_line(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa", group=1), linewidth =  1) +
-  geom_point(aes(y = kappa_fleiss, color = "Humans-LLaMa 3 codes kappa"), size =  5) +
-  geom_line(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa", group=1), linewidth =  1) +
-  geom_point(aes(y = kappa, color = "Human Consensus-LLaMa 2 codes kappa"), size =  5) +
-  scale_color_manual(values = colors) + 
-  scale_y_continuous(limits=c(-0.26,1),breaks=seq(0,1,by = 0.2))+
-  labs(  
-    #labs(title = paste("Evolution by Topics for Prompt 1"),
-    x = "", y = "Value", color = "Metric") +
-  theme_minimal() +
-  theme(panel.background = element_rect(fill = "white", color = NA),
-        legend.position = "bottom",
-        text = element_text(size =  12),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +  # <--- Ajuste clave
-  scale_x_discrete(expand = expansion(mult = c(0.05, 0.05))) 
 
-filename <- sprintf("Results/Main Project/LLaMa/Main Study-Evolution_of_topics4_04.png")
-ggsave(filename = filename, plot = plot, dpi = 300, width = 10, height = 6, bg = "white")
-print(plot)
+results_long <- results_04 %>%
+  pivot_longer(
+    cols=c(recall,precision,accuracy,f1,kappa_fleiss,kappa),
+    names_to="Metric",
+    values_to="Value"
+  )
+
+results_long$Metric <- factor(
+  results_long$Metric,
+  levels=c("accuracy","precision","recall",
+           "f1","kappa_fleiss","kappa"),
+  labels=c("Accuracy",
+           "Precision",
+           "Recall",
+           "F1",
+           "Humans-LLaMa 3 codes kappa",
+           "Human Consensus-LLaMa 2 codes kappa")
+)
+```
+
+We generate a large, high‑resolution plot for saving and publication, and a smaller simplified version for direct visualization inside RStudio.
+
+```{r,warnings=FALSE}
+plot <- ggplot(results_long,
+               aes(Issue, Value, fill=Metric))+
+  
+  geom_col(position=position_dodge(.8),
+           width=.5,
+           alpha=.35)+
+  
+  geom_point(aes(colour=Metric),
+             position=position_dodge(.8),
+             size=8)+
+  
+  scale_fill_manual(values=colors_LLaMa)+
+  scale_colour_manual(values=colors_LLaMa)+
+  
+  scale_y_continuous(limits=c(-0.26,1),
+                     breaks=seq(0,1,.2))+
+  
+  labs(x="",y="Value",
+       fill="Metric",
+       colour="Metric")+
+  
+  theme_minimal()+
+  theme(
+    legend.position = "bottom",
+    text = element_text(size = 42),
+    axis.text.x = element_text(size = 44, angle = 60, hjust = 1, face='bold'),
+    axis.text.y = element_text(size = 40),
+    axis.title = element_text(size = 44),
+    legend.title = element_text(size = 44),
+    legend.text = element_text(size = 42)
+  )
+#uncomment to save
+#ggsave("Results/Main Project/LLaMa/New_BarsPoints4_main_LLaMa.png",plot,width=48,height=27,dpi=300,bg="white")
+```
+
+The following version is optimized for RStudio, using smaller text and smaller legend symbols to ensure that the full plot is displayed correctly within the RStudio environment.
+
+```{r,warnings=FALSE}
+plot_view <- ggplot(results_long,
+                    aes(Issue, Value, fill = Metric)) +
+  
+  # Large but balanced bars
+  geom_col(position = position_dodge(width = 0.55),
+           width = 0.4,        # wide bars, but not too wide
+           alpha = 0.4) +      # lighter fill for clarity
+  
+  # Small points for clarity
+  geom_point(aes(colour = Metric),
+             position = position_dodge(width = 0.55),
+             size = 1.5) +
+  
+  # Manual color scales
+  scale_fill_manual(values = colors_LLaMa) +
+  scale_colour_manual(values = colors_LLaMa) +
+  
+  # Y-axis limits and breaks
+  scale_y_continuous(limits = c(-0.3, 1),
+                     breaks = seq(0, 1, 0.2)) +
+  
+  # Axis labels
+  labs(x = "",
+       y = "Value",
+       fill = "Metric",
+       colour = "Metric") +
+  
+  # Prevent clipping of long labels
+  coord_cartesian(clip = "off") +
+  
+  # Compact legend (single guide)
+  guides(
+    fill = guide_legend(
+      override.aes = list(size = 1.2, alpha = 0.6),
+      ncol = 3
+    )
+  ) +
+  
+  # Theme adjustments for RStudio visibility
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.box = "horizontal",
+    legend.key.size = unit(0.3, "lines"),
+    legend.spacing.x = unit(0.15, "lines"),
+    
+    # General text size
+    text = element_text(size = 9),
+    
+    # X-axis labels
+    axis.text.x = element_text(size = 6, angle = 55, hjust = 1, face = "bold", margin = margin(t = 2)),
+    
+    # Y-axis labels
+    axis.text.y = element_text(size = 8),
+    
+    # Axis titles
+    axis.title = element_text(size = 9),
+    
+    # Legend text
+    legend.title = element_text(size = 9),
+    legend.text  = element_text(size = 8),
+    
+    # Panel margins (balanced)
+    plot.margin = margin(60, 60, 60, 60)
+  )
+print(plot_view)
 ```
