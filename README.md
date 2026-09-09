@@ -3,6 +3,8 @@
 This repository contains all code, data, and documentation required to reproduce the analyses reported in the manuscript *“Large Language Models vs. Human Coders in Political Communication Research”*.  
 The project is organized around a single fully reproducible R Markdown workflow, complemented by three standalone R scripts and one Jupyter notebook for users who prefer modular execution.
 
+---
+
 ## 1. Repository Structure
 
 The repository includes the following files, as described in the manuscript and in the reproducibility report:
@@ -30,7 +32,6 @@ LLMPolComRes/
 │   ├── binarizations_LLM.xlsx
 │   ├── main_binarizations_LLaMa.xlsx
 │   ├── main_binarizations_BART.xlsx
-
 │
 └── Results/
     ├── Pilot/
@@ -73,10 +74,14 @@ The ZSC step can be skipped using:
 ```bash
 SKIP_ZSC=YES
 ```
-
 ### Markdown_MainProject.R  
 Reproduces the BART analysis of the main dataset.  
-Includes preprocessing, binarization, metric computation, and figure generation.
+Includes preprocessing, zero-shot classification (ZSC), binarization, metric computation, and figure generation.  
+The ZSC step can be skipped using:
+
+```bash
+SKIP_ZSC=YES
+```
 
 ### Markdown_MainProject_LLaMa.R  
 Reproduces the LLaMA analysis of the main dataset using the classifications generated in the notebook.
@@ -84,7 +89,7 @@ Reproduces the LLaMA analysis of the main dataset using the classifications gene
 ### Perform_LLaMa.ipynb  
 Performs LLaMA classification for both pilot and main datasets.  
 Requires access approval from Meta:  
-`https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct` [(huggingface.co in Bing)](https://www.bing.com/search?q="https%3A%2F%2Fhuggingface.co%2Fmeta-llama%2FLlama-3.1-8B-Instruct")
+`https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct`
 
 Runtime used in the reproducibility check:  
 **Google Colab 2026.07 — GPU T4**
@@ -96,7 +101,23 @@ Running this notebook in separate batches for the different sets of texts produc
 
 ---
 
-## 4. Computational Requirements
+## 4. Zero‑Shot Classification (ZSC) Function
+
+The **ZSC function** is the core procedure used to obtain classifications from BART (or any other Hugging Face LLM).  
+It operates by iteratively evaluating **each text–hypothesis–issue combination** and returning probability scores.
+
+### Key points:
+- The function is computationally intensive: running the full dataset in one pass is **not feasible**.  
+- It should be executed in **smaller batches** of texts.  
+- The outputs are stored in Excel files:
+  - **LLM sheet** → contains classifications from BART (or other Hugging Face LLMs).  
+  - **LLaMA sheet** → contains classifications from LLaMA (generated via the notebook).  
+
+This design ensures that both pilot and main datasets can be reproduced without requiring extreme computational resources.
+
+---
+
+## 5. Computational Requirements
 
 Zero-shot classification is computationally expensive.  
 Running the full classification for the complete datasets is **not feasible on CPU**.
@@ -110,7 +131,7 @@ Running the full classification for the complete datasets is **not feasible on C
 
 ---
 
-## 5. Docker Environment (Reviewer’s Setup)
+## 6. Docker Environment (Reviewer’s Setup)
 
 The reviewer provided a Docker environment for full reproducibility:
 
@@ -127,23 +148,23 @@ docker compose run --remove-orphans --rm tbv quarto render Markdown_MainProject_
 
 ---
 
-## 6. Origin of Classification Files
+## 7. Origin of Classification Files
 
 ### Data/Main_classification.xlsx  
 Contains:
-- BART classifications generated via `Markdown_MainProject.R`
-- LLaMA classifications generated via `Perform_LLaMa.ipynb`
+- BART classifications generated via `Markdown_MainProject.R` (stored in the **BART** sheet)  
+- LLaMA classifications generated via `Perform_LLaMa.ipynb` (stored in the **LLaMA** sheet)
 
 ### Data/Pilot_classification.xlsx  
 Contains:
-- BART classifications generated via `Markdown_PilotDataset.R`
-- LLaMA classifications generated via `Perform_LLaMa.ipynb`
+- BART classifications generated via `Markdown_PilotDataset.R` (stored in the **LLM** sheet)  
+- LLaMA classifications generated via `Perform_LLaMa.ipynb` (stored in the **LLaMA** sheet)
 
 Both files are produced by combining batch outputs, as running the full dataset in one pass is not feasible.
 
 ---
 
-## 7. Summary of Tables and Figures
+## 8. Summary of Tables and Figures
 
 ### Main Study
 
@@ -178,7 +199,9 @@ Both files are produced by combining batch outputs, as running the full dataset 
 
 ---
 
-## 8. Contact
+## 9. Contact
 
 For questions or issues, please open an issue in the repository or contact the authors.
 ```
+
+---
