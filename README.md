@@ -15,22 +15,22 @@ LLMPolComRes/
 ├── Markdown.Rmd
 ├── Markdown.html
 │
-├── Markdown_PilotDataset.R
-├── Markdown_MainProject.R
-├── Markdown_MainProject_LLaMa.R
+├── PilotStudy.R
+├── MainStudy.R
+├── MainStudy_LLaMA.R
 │
-├── Perform_LLaMa.ipynb
+├── Perform_LLaMA.ipynb
 │
 ├── Data/
-│   ├── Pilot Data.xlsx
-│   ├── Main Data.xlsx
+│   ├── Pilot_Data.xlsx
+│   ├── Main_Data.xlsx
 │   ├── Pilot_classification.xlsx
 │   ├── Main_classification.xlsx
 │   ├── pilot_data_1_200.xlsx
 │   ├── main_data_1_200.xlsx
-│   ├── binarizations_LLaMa.xlsx
+│   ├── binarizations_LLaMA.xlsx
 │   ├── binarizations_LLM.xlsx
-│   ├── main_binarizations_LLaMa.xlsx
+│   ├── main_binarizations_LLaMA.xlsx
 │   ├── main_binarizations_BART.xlsx
 │
 └── Results/
@@ -66,7 +66,7 @@ This is the **preferred reproducible path**.
 
 For users who prefer to reproduce each analysis separately, the repository includes three R scripts and one notebook:
 
-### Markdown_PilotDataset.R  
+### PilotStudy.R  
 Reproduces the pilot dataset analysis.  
 Includes preprocessing, zero-shot classification (ZSC), binarization, metric computation, and figure generation.  
 The ZSC step can be skipped using:
@@ -74,7 +74,7 @@ The ZSC step can be skipped using:
 ```bash
 SKIP_ZSC=YES
 ```
-### Markdown_MainProject.R  
+### MainStudy.R  
 Reproduces the BART analysis of the main dataset.  
 Includes preprocessing, zero-shot classification (ZSC), binarization, metric computation, and figure generation.  
 The ZSC step can be skipped using:
@@ -83,13 +83,13 @@ The ZSC step can be skipped using:
 SKIP_ZSC=YES
 ```
 
-### Markdown_MainProject_LLaMa.R  
+### MainStudy_LLaMA.R  
 Reproduces the LLaMA analysis of the main dataset using the classifications generated in the notebook.
 
-### Perform_LLaMa.ipynb  
+### Perform_LLaMA.ipynb  
 Performs LLaMA classification for both pilot and main datasets.  
 Requires access approval from Meta:  
-`https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct`
+`https://huggingface.co/meta-LLaMA/LLaMA-3.1-8B-Instruct`
 
 Runtime used in the reproducibility check:  
 **Google Colab 2026.07 — GPU T4**
@@ -143,7 +143,7 @@ docker compose run --remove-orphans --rm tbv Rscript Functions.R
 For Quarto rendering:
 
 ```bash
-docker compose run --remove-orphans --rm tbv quarto render Markdown_MainProject_LLaMa.R
+docker compose run --remove-orphans --rm tbv quarto render MainStudy_LLaMA.R
 ```
 
 ---
@@ -152,13 +152,13 @@ docker compose run --remove-orphans --rm tbv quarto render Markdown_MainProject_
 
 ### Data/Main_classification.xlsx  
 Contains:
-- BART classifications generated via `Markdown_MainProject.R` (stored in the **BART** sheet)  
-- LLaMA classifications generated via `Perform_LLaMa.ipynb` (stored in the **LLaMA** sheet)
+- BART classifications generated via `MainStudy.R` (stored in the **BART** sheet)  
+- LLaMA classifications generated via `Perform_LLaMA.ipynb` (stored in the **LLaMA** sheet)
 
 ### Data/Pilot_classification.xlsx  
 Contains:
 - BART classifications generated via `Markdown_PilotDataset.R` (stored in the **LLM** sheet)  
-- LLaMA classifications generated via `Perform_LLaMa.ipynb` (stored in the **LLaMA** sheet)
+- LLaMA classifications generated via `Perform_LLaMA.ipynb` (stored in the **LLaMA** sheet)
 
 Both files are produced by combining batch outputs, as running the full dataset in one pass is not feasible.
 
@@ -177,11 +177,11 @@ Both files are produced by combining batch outputs, as running the full dataset 
 
 **Figure 1 — Alignment of BART with Humans**  
 - `Results/Main Project/BART/New_BarsPoints4_main_BART.png`  
-- Generated in `Markdown_MainProject.R`, lines 357–412
+- Generated in `MainStudy.R`, lines 357–412
 
 **Figure 2 — Alignment of LLaMA with Humans**  
-- `Results/Main Project/LLaMa/New_BarsPoints4_main_LLaMa.png`  
-- Generated in `Markdown_MainProject_LLaMa.R`, lines 247–304
+- `Results/Main Project/LLaMA/New_BarsPoints4_main_LLaMA.png`  
+- Generated in `MainStudy_LLaMA.R`, lines 247–304
 
 ---
 
