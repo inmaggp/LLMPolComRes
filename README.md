@@ -1,6 +1,6 @@
-# LLMPolComRes, Large Language Models vs. Human Coders in Political Communication Research
+# LLMPolComRes, An AI Language Model vs. Human Coders in Political Communication Research
 
-This repository contains all code, data, and documentation required to reproduce the analyses reported in the manuscript *“Large Language Models vs. Human Coders in Political Communication Research”*.  
+This repository contains all code, data, and documentation required to reproduce the analyses reported in the manuscript *“An AI Language Model vs. Human Coders in Political Communication Research”*.  
 The project is organized around a single fully reproducible R Markdown workflow, complemented by three standalone R scripts and one Jupyter notebook for users who prefer modular execution.
 
 ---
