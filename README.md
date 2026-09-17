@@ -157,7 +157,7 @@ Contains:
 
 ### Data/Pilot_classification.xlsx  
 Contains:
-- BART classifications generated via `Markdown_PilotDataset.R` (stored in the **LLM** sheet)  
+- BART classifications generated via `PilotStudy.R` (stored in the **LLM** sheet)  
 - LLaMA classifications generated via `Perform_LLaMA.ipynb` (stored in the **LLaMA** sheet)
 
 Both files are produced by combining batch outputs, as running the full dataset in one pass is not feasible.
@@ -191,10 +191,10 @@ Both files are produced by combining batch outputs, as running the full dataset 
 - From `Data/Pilot_classification.xlsx` (highlighted rows)
 
 **Table A2 — Pearson Correlations**  
-- Generated in `Markdown_PilotDataset.R`, lines 484–516
+- Generated in `PilotStudy.R`, lines 484–516
 
 **Figures 1–3 — Pilot Study Analyses**  
-- Generated in `Markdown_PilotDataset.R`  
+- Generated in `PilotStudy.R`  
 - Located in `Results/Pilot/`
 
 ---
