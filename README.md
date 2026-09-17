@@ -120,7 +120,7 @@ This design ensures that both pilot and main datasets can be reproduced without 
 ## 5. Computational Requirements
 
 Zero-shot classification is computationally expensive.  
-Running the full classification for the complete datasets is **not feasible on CPU**.
+Running the full classification for the complete datasets is **not recommended on a standard CPU**.
 
 ### Recommendations
 - Use **GPU** (e.g., Colab T4).  
