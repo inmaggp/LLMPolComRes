@@ -1,4 +1,4 @@
-# LLMPolComRes, An AI Language Model vs. Human Coders in Political Communication Research
+# An AI Language Model vs. Human Coders in Political Communication Research
 
 This repository contains all code, data, and documentation required to reproduce the analyses reported in the manuscript *“An AI Language Model vs. Human Coders in Political Communication Research”*.  
 The project is organized around a single fully reproducible R Markdown workflow, complemented by three standalone R scripts and one Jupyter notebook for users who prefer modular execution.
@@ -35,7 +35,17 @@ LLMPolComRes/
 │
 └── Results/
     ├── Pilot/
+            ├──Comparison/
+            ├──LLaMA/
+               ├──results_pilot_LLaMA.xlsx 
+            ├──LLM/
+               ├──results_pilot_LLM.xlsx 
     └── Main Project/
+            ├──BART/
+               ├──results_main_LLaMA.xlsx 
+            ├──LLaMA/
+               ├──results_main_BART.xlsx 
+
 ```
 
 ---
